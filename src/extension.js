@@ -19,10 +19,20 @@ function startExtension(gmail) {
         const userEmail = gmail.get.user_email();
         console.log("Hello, " + userEmail + ". This is your extension talking!");
 
-        gmail.observe.on("view_email", (domEmail) => {
-            console.log("Looking at email:", domEmail);
-            const emailData = gmail.new.get.email_data(domEmail);
-            console.log("Email data:", emailData);
+        //Works without opening the mail
+        //IMP - Only counts number of selected emails, can't acces the body content of email without opening it!
+        gmail.tools.add_toolbar_button("Count", (domEmail) => {
+            var checkedLength = gmail.get.selected_emails_data().length;
+            if (checkedLength == 0) {
+                alert("Select atleast one email!");
+            }
+            else if (checkedLength > 0) {
+                if (checkedLength > 1) {
+                    alert("Selected " + checkedLength + " emails!");
+                } else {
+                    alert("Selected " + checkedLength + " email!");
+                }
+            }
         });
     });
 }
