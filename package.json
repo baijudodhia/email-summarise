@@ -1,0 +1,22 @@
+{
+  "name": "gmailjs-node-boilerplate",
+  "version": "1.0.0",
+  "description": "",
+  "main": "",
+  "scripts": {
+    "deps": "npm install",
+    "stage": "mkdir dist || echo Dist already exists.",
+    "bundle": "browserify -o dist/gmailJsLoader.js src/gmailJsLoader.js && browserify -o dist/extension.js src/extension.js",
+    "devbuild": "cp ../gmail.js/src/gmail.js node_modules/gmail-js/src/ && npm run build", 
+    "build": "npm run stage && npm run bundle"
+  },
+  "author": "Jostein kjønigsen",
+  "license": "ISC",
+  "dependencies": {
+    "gmail-js": "^1.0.0",
+    "jquery": "^3.3.1"
+  },
+  "devDependencies": {
+    "browserify": "16.5.1"
+  }
+}
