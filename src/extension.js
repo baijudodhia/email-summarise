@@ -1,5 +1,8 @@
 "use strict";
 
+//Gloabl variable to handle email_body since local variables lead to creation of nested  (view_email => (add_button)) which add a new button on toolbar everytime on opening a email and didn't remove the previous one. 
+var email_body;
+
 // loader-code: wait until gmailjs has finished loading, before triggering actual extensiode-code.
 const loaderId = setInterval(() => {
     if (!window._gmailjs) {
@@ -34,5 +37,28 @@ function startExtension(gmail) {
                 }
             }
         });
+
+        //Works on opening the mail
+        //IMP - Can only check the one opened email, not more than one!
+        gmail.observe.on("view_email", (domEmail) => {
+            //Don't add button here else will lead to creation of multiple buttons.
+            var email_data = gmail.new.get.email_data(domEmail);
+            email_body = email_data.content_html;
+        });
+
+        //Keep already added button in toolbar since adding inside gmail.observe.on("view_email") lead to addition of mutliple buttons without removing the previous ones.
+        gmail.tools.add_toolbar_button("Summarise", () => {
+            summarise(email_body);
+        });
     });
+
+    function summarise(email_body) {
+        if (!email_body) {
+            alert("Please open an email to summarise!");
+        }
+        else {
+            console.log("Data - " + email_body);
+            console.log(typeof email_body);
+        }
+    }
 }
