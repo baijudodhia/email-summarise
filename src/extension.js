@@ -69,8 +69,12 @@ function startExtension(gmail) {
     }
 
     function TextPreprocessing(text) {
+        console.log(tp.ExtractLinks(text));
         text = tp.RemoveHtmlTags(text);
         text = tp.RemoveSpecialCharactersCode(text);
+        console.log(tp.ExtractEmails(text));
+        console.log(tp.ExtractPhones(text));
+        text = tp.RemoveStatisticalData(text);
         text = tp.RemoveNewLine(text);
         text = tp.RemoveWhiteSpaces(text);
         return text;
