@@ -38,3 +38,12 @@ exports.ExtractPhones = function (text) {
     var extracted_Phones = text.match(/\+?\d[\d -]{8,12}\d/g);
     return extracted_Phones;
 }
+
+exports.RemoveStopwords = function (text, sws) {
+    length_sws = sws.length;
+    for (let i = 0; i < length_sws; i++) {
+        var re = new RegExp(sws[i], "gi");
+        text = text.replace(re, ' ');
+    }
+    return text;
+}

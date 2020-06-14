@@ -1,6 +1,16 @@
 "use strict";
 
+var stopwords = require('./stopwords');
+var sws;
 var tp = require('./textpreprocessing');
+var removed_HtmlTags;
+var removed_SpecialCharactersCode;
+var removed_NewLine;
+var removed_WhiteSpaces;
+var removed_Stopwords;
+var extracted_Emails, removed_Emails;
+var extracted_Phones, removed_Phones;
+var extracted_Links, removed_Links;
 
 //Gloabl variable to handle emailData since local variables lead to creation of nested  (view_email => (add_button)) which add a new button on toolbar everytime on opening a email and didn't remove the previous one. 
 var emailData;
@@ -17,6 +27,8 @@ const loaderId = setInterval(() => {
 
 // actual extension-code
 function startExtension(gmail) {
+
+    sws = stopwords.stopwords();
 
     console.log("Extension loading...");
     window.gmail = gmail;
@@ -77,6 +89,7 @@ function startExtension(gmail) {
         text = tp.RemoveStatisticalData(text);
         text = tp.RemoveNewLine(text);
         text = tp.RemoveWhiteSpaces(text);
+        text = tp.RemoveStopwords(text, sws);
         return text;
     }
 }
