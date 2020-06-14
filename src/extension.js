@@ -1,7 +1,9 @@
 "use strict";
 
-//Gloabl variable to handle email_body since local variables lead to creation of nested  (view_email => (add_button)) which add a new button on toolbar everytime on opening a email and didn't remove the previous one. 
-var email_body;
+var tp = require('./textpreprocessing');
+
+//Gloabl variable to handle emailData since local variables lead to creation of nested  (view_email => (add_button)) which add a new button on toolbar everytime on opening a email and didn't remove the previous one. 
+var emailData;
 
 // loader-code: wait until gmailjs has finished loading, before triggering actual extensiode-code.
 const loaderId = setInterval(() => {
@@ -15,6 +17,7 @@ const loaderId = setInterval(() => {
 
 // actual extension-code
 function startExtension(gmail) {
+
     console.log("Extension loading...");
     window.gmail = gmail;
 
@@ -42,23 +45,34 @@ function startExtension(gmail) {
         //IMP - Can only check the one opened email, not more than one!
         gmail.observe.on("view_email", (domEmail) => {
             //Don't add button here else will lead to creation of multiple buttons.
-            var email_data = gmail.new.get.email_data(domEmail);
-            email_body = email_data.content_html;
+            emailData = gmail.new.get.email_data(domEmail);
         });
 
         //Keep already added button in toolbar since adding inside gmail.observe.on("view_email") lead to addition of mutliple buttons without removing the previous ones.
         gmail.tools.add_toolbar_button("Summarise", () => {
-            summarise(email_body);
+            summarise(emailData);
         });
+
     });
 
-    function summarise(email_body) {
-        if (!email_body) {
+    function summarise(emailData) {
+        if (Object.keys(emailData).length === 0) {
             alert("Please open an email to summarise!");
         }
         else {
-            console.log("Data - " + email_body);
-            console.log(typeof email_body);
+            var EmailBody = TextPreprocessing(emailData.content_html);
+            gmail.tools.add_modal_window('Email Body', EmailBody,
+                function () {
+                    gmail.tools.remove_modal_window();
+                });
         }
+    }
+
+    function TextPreprocessing(text) {
+        text = tp.RemoveHtmlTags(text);
+        text = tp.RemoveSpecialCharactersCode(text);
+        text = tp.RemoveNewLine(text);
+        text = tp.RemoveWhiteSpaces(text);
+        return text;
     }
 }
