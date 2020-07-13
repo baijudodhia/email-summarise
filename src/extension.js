@@ -3,6 +3,7 @@
 var stopwords = require('./stopwords');
 var sws;
 var tp = require('./textpreprocessing');
+var email_subject;
 var removed_HtmlTags;
 var removed_SpecialCharactersCode;
 var removed_NewLine;
@@ -20,6 +21,7 @@ var stemmed_array_sentences_removedStopwords;
 var words_count;
 var max_count_of_any_word;
 var max_frequency_words;
+var max_frequency_words_sentence;
 var max_count;
 var imp_index;
 
@@ -69,6 +71,8 @@ function startExtension(gmail) {
         gmail.observe.on("view_email", (domEmail) => {
             //Don't add button here else will lead to creation of multiple buttons.
             emailData = gmail.new.get.email_data(domEmail);
+            email_subject = gmail.get.email_subject(domEmail);
+            console.log(email_subject);
         });
 
         //Keep already added button in toolbar since adding inside gmail.observe.on("view_email") lead to addition of mutliple buttons without removing the previous ones.
@@ -93,6 +97,7 @@ function startExtension(gmail) {
 
     function TextPreprocessing(text) {
 
+        console.log("HERE - " + text);
         arr_sentences = [];
         arr_sentences_removedStopwords = [];
         stemmed_array_sentences = [];
@@ -101,18 +106,28 @@ function startExtension(gmail) {
         max_count_of_any_word = 0;
         max_frequency_words = [];
         imp_index = [];
-        text = tp.RemoveHtmlTags(text);
-        text = tp.RemoveSpecialCharactersCode(text);
         extracted_Emails = tp.ExtractEmails(text);
         extracted_Links = tp.ExtractLinks(text);
+        text = tp.RemoveWordBreakingOpportunityTag(text);
+        text = tp.RemoveHtmlTags(text);
+        text = email_subject + ". " + text;
+        // console.log(text.split(/(?<=\S\S\S[\.?!])\s+/));
+        text = tp.RemoveSpecialCharactersCode(text);
+        text = tp.RemoveNonASCIICharacters(text);
+        text = tp.RemoveHyphenFromPhoneNumbers(text);
+        text = tp.RemoveWhiteSpaceFromPhoneNumbers(text);
         extracted_Phones = tp.ExtractPhones(text);
+        text = tp.RemoveListBulletin(text);
         text = tp.RemoveStatisticalData(text);
         text = tp.RemoveNewLine(text);
         text = tp.RemoveWhiteSpaces(text);
-
+        text = tp.RemoveSentenceStartWhiteSpace(text);
         text = tp.RemoveWhiteSpacesWithoutAfterSpace(text);
         text = tp.RemoveWhiteSpacesWithBlank(text);
         text = tp.RemoveBracketInformation(text);
+        text = tp.RemoveWhiteSpaceAroundFullStop(text);
+        text = tp.RemoveWhiteSpaceAroundQuestionMark(text);
+        text = tp.RemoveWhiteSpaceAroundExclamationMark(text);
         arr_sentences = SplitToSentences(text);
         temp_arr_sentences = Array.from(arr_sentences);
         arr_sentences = tp.RemoveLeadingSpaces(temp_arr_sentences);
@@ -130,8 +145,16 @@ function startExtension(gmail) {
     }
 
     function SplitToSentences(text) {
-        arr_sentences = text.replace(/(?<=[\w]+)[\.](?=[\w]+)/gm, ""); //Replaces Dot with blank whenever it is in between two words without spaces
-        arr_sentences = text.split(". ");
+        let arr_sentences2 = text.replace(/(?<=[\w]+)[\.](?=[\w]+)/gm, ""); //Replaces Dot with blank whenever it is in between two words without spaces
+        arr_sentences2 = text.split(/(?<=\S\S\S[\.?!])\s+/gm);
+        length = arr_sentences2.length;
+        let c = 0;
+        for (let i = 0; i < length; i++) {
+            if (arr_sentences2[i].length > 10) {
+                arr_sentences[c] = arr_sentences2[i];
+                c++;
+            }
+        }
         return arr_sentences;
     }
 
@@ -143,7 +166,8 @@ function startExtension(gmail) {
             stemmed_array_sentences[i] = sentences[i];
             for (let j = 0; j < word_length; j++) {
                 let stemmed_word = stemmer(words_in_sentence[j]);
-                var re = new RegExp(stemmed_word, 'g');
+                // var re = new RegExp(stemmed_word, 'g');
+                var re = "/" + stemmed_word + "/gm";
                 stemmed_array_sentences[i] = stemmed_array_sentences[i].replace(re, stemmed_word);
             }
         }
@@ -173,50 +197,124 @@ function startExtension(gmail) {
         var count = 0;
         for (var i = max_count_of_any_word; i > 0; i--) {
             for (var word in words_count) {
-                if (count === 5) {
-                    break;
-                }
-                if (words_count[word] === i) {
-                    max_frequency_words[count] = word;
-                    count++;
-                }
-            }
-        }
-        for (var i = 0; i < 5; i++) {
-            console.log(i + " - " + max_frequency_words[i]);
-        }
-    }
-
-    function ImportantSentences() {
-        var max_frequency_words_length = max_frequency_words.length;
-        max_count = [];
-        var stemmed_array_sentences_removedStopwords_length = stemmed_array_sentences_removedStopwords.length;
-        for (var i = 0; i < stemmed_array_sentences_removedStopwords_length; i++) {
-            for (var j = 0; j < max_frequency_words_length; j++) {
-                var patt = new RegExp(max_frequency_words[j], "g");
-                var res = patt.test(stemmed_array_sentences_removedStopwords[i]);
-                if (res) {
-                    if (max_count[i] === undefined) {
-                        max_count[i] = 1;
-                    } else {
-                        max_count[i] += 1;
+                if (word) {
+                    if (count === 10) {
+                        break;
+                    }
+                    if (words_count[word] === i) {
+                        max_frequency_words[count] = word;
+                        count++;
                     }
                 }
             }
         }
+        for (var i = 0; i < 10; i++) {
+            console.log(i + " - " + max_frequency_words[i]);
+        }
+    }
+
+    function wordCountMap(str) {
+        let words = str.split(' ');
+        let wordCount = {};
+        words.forEach((w) => {
+            wordCount[w] = (wordCount[w] || 0) + 1;
+
+        });
+        return wordCount;
+    }
+
+    function wordMapToVector(map, dict) {
+        let wordCountVector = [];
+        for (let term in dict) {
+            wordCountVector.push(map[term] || 0);
+        }
+        return wordCountVector;
+    }
+
+    function addWordsToDictionary(wordCountmap, dict) {
+        for (let key in wordCountmap) {
+            dict[key] = true;
+        }
+    }
+
+    function dotProduct(vecA, vecB) {
+        let product = 0;
+        for (let i = 0; i < vecA.length; i++) {
+            product += vecA[i] * vecB[i];
+        }
+        return product;
+    }
+
+    function magnitude(vec) {
+        let sum = 0;
+        for (let i = 0; i < vec.length; i++) {
+            sum += vec[i] * vec[i];
+        }
+        return Math.sqrt(sum);
+    }
+
+    function cosineSimilarity(vecA, vecB) {
+        return dotProduct(vecA, vecB) / (magnitude(vecA) * magnitude(vecB));
+    }
+
+    function textCosineSimilarity(txtA, txtB) {
+        const wordCountA = wordCountMap(txtA);
+        const wordCountB = wordCountMap(txtB);
+        let dict = {};
+        addWordsToDictionary(wordCountA, dict);
+        addWordsToDictionary(wordCountB, dict);
+        const vectorA = wordMapToVector(wordCountA, dict);
+        const vectorB = wordMapToVector(wordCountB, dict);
+        return cosineSimilarity(vectorA, vectorB);
+    }
+
+    function ImportantSentences() {
+        var max_frequency_words_length = max_frequency_words.length;
+        max_frequency_words_sentence = "";
+        for (let i = 0; i < max_frequency_words_length; i++) {
+            max_frequency_words_sentence += max_frequency_words[i] + " ";
+        }
+        max_count = [];
+        var stemmed_array_sentences_removedStopwords_length = stemmed_array_sentences_removedStopwords.length;
+        for (let i = 0; i < stemmed_array_sentences_removedStopwords_length; i++) {
+            max_count[i] = textCosineSimilarity(stemmed_array_sentences_removedStopwords[i], max_frequency_words_sentence);
+        }
         FindLargest();
     }
 
+    // function ImportantSentences() {
+    //     var max_frequency_words_length = max_frequency_words.length;
+    //     max_count = [];
+    //     var stemmed_array_sentences_removedStopwords_length = stemmed_array_sentences_removedStopwords.length;
+    //     for (var i = 0; i < stemmed_array_sentences_removedStopwords_length; i++) {
+    //         for (var j = 0; j < max_frequency_words_length; j++) {
+    //             var patt = new RegExp(max_frequency_words[j], "g");
+    //             var res = patt.test(stemmed_array_sentences_removedStopwords[i]);
+    //             if (res) {
+    //                 if (max_count[i] === undefined) {
+    //                     max_count[i] = 1;
+    //                 } else {
+    //                     max_count[i] += 1;
+    //                 }
+    //             }
+    //         }
+    //     }
+    //     FindLargest();
+    // }
+
+
+
     function FindLargest() {
+        console.log(arr_sentences);
         imp_index = [];
         var sorted_max_count = [];
         sorted_max_count = Array.from(max_count);
         sorted_max_count.sort(function (a, b) { return b - a });
-        var unique_sorted_max_count = Array.from(new Set(sorted_max_count));
+        // var unique_sorted_max_count = Array.from(new Set(sorted_max_count));
         var length_max_count = max_count.length;
         for (var i = 0; i < 3; i++) {
             for (var j = 0; j < length_max_count; j++) {
-                if (unique_sorted_max_count[i] === max_count[j]) {
+                if (sorted_max_count[i] === max_count[j]) {
                     imp_index[i] = j;
                     break;
                 }
@@ -228,15 +326,16 @@ function startExtension(gmail) {
     function GenerateSummary(text) {
         text = "";
         for (var i = 0; i < 3; i++) {
-            text += arr_sentences[imp_index[i]];
-            text += ".<br />";
+            text += (i + 1) + ". " + arr_sentences[imp_index[i]];
+            text += "<br />";
         }
+        return text;
         text += "<br />Emails Extracted - <br />";
         if (extracted_Emails !== null) {
             for (var i = 0; i < extracted_Emails.length; i++) {
                 text += (i + 1);
                 text += ". ";
-                text += extracted_Emails[i];
+                text += "<a target='_blank' href='mailto:" + extracted_Emails[i] + "'>" + extracted_Emails[i] + "</a>";
                 text += "<br />";
             }
         }
@@ -245,15 +344,17 @@ function startExtension(gmail) {
             for (var i = 0; i < extracted_Links.length; i++) {
                 text += (i + 1);
                 text += ". ";
-                text += extracted_Links[i];
+                text += "<a target='_blank' href='" + extracted_Links[i] + "'>" + extracted_Links[i] + "</a>";
                 text += "<br />";
             }
         }
         if (extracted_Phones !== null) {
             text += "<br />Phone Numbers Extracted - <br />";
             for (var i = 0; i < extracted_Phones.length; i++) {
-                text += extracted_Phones[i];
-                text += ", ";
+                text += (i + 1);
+                text += ". ";
+                text += "<a target='_blank' href='tel:" + extracted_Phones[i] + "'>" + extracted_Phones[i] + "</a>";
+                text += "<br />";
             }
         }
         return text;
