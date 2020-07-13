@@ -329,7 +329,6 @@ function startExtension(gmail) {
             text += (i + 1) + ". " + arr_sentences[imp_index[i]];
             text += "<br />";
         }
-        return text;
         text += "<br />Emails Extracted - <br />";
         if (extracted_Emails !== null) {
             for (var i = 0; i < extracted_Emails.length; i++) {
