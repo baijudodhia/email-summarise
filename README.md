@@ -21,3 +21,10 @@ npm run build
 
 Preview Pane needs to be activate in Gmail for extension to work.<br>
 You can active the Preview Pane in Gmail advance settings.
+
+## Mention
+
+This project has had a constant contribution and support from
+[@Onkar247](https://github.com/Onkar247)
+[@omkar2225](https://github.com/omkar2225)
+[@jigar2907](https://github.com/jigar2907)
