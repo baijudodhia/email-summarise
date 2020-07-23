@@ -9,9 +9,9 @@ var removed_SpecialCharactersCode;
 var removed_NewLine;
 var removed_WhiteSpaces;
 var removed_Stopwords;
-var extracted_Emails, removed_Emails;
-var extracted_Phones, removed_Phones;
-var extracted_Links, removed_Links;
+var extracted_Emails, removed_Emails, unique_Extracted_Emails;
+var extracted_Phones, removed_Phones, unique_Extracted_Links;
+var extracted_Links, removed_Links, unique_Extracted_Phones;
 var stemmer = require('stemmer');
 var arr_sentences;
 var temp_arr_sentences;
@@ -52,19 +52,19 @@ function startExtension(gmail) {
 
         //Works without opening the mail
         //IMP - Only counts number of selected emails, can't acces the body content of email without opening it!
-        gmail.tools.add_toolbar_button("Count", (domEmail) => {
-            var checkedLength = gmail.get.selected_emails_data().length;
-            if (checkedLength == 0) {
-                alert("Select atleast one email!");
-            }
-            else if (checkedLength > 0) {
-                if (checkedLength > 1) {
-                    alert("Selected " + checkedLength + " emails!");
-                } else {
-                    alert("Selected " + checkedLength + " email!");
-                }
-            }
-        });
+        // gmail.tools.add_toolbar_button("Count", (domEmail) => {
+        //     var checkedLength = gmail.get.selected_emails_data().length;
+        //     if (checkedLength == 0) {
+        //         alert("Select atleast one email!");
+        //     }
+        //     else if (checkedLength > 0) {
+        //         if (checkedLength > 1) {
+        //             alert("Selected " + checkedLength + " emails!");
+        //         } else {
+        //             alert("Selected " + checkedLength + " email!");
+        //         }
+        //     }
+        // });
 
         //Works on opening the mail
         //IMP - Can only check the one opened email, not more than one!
@@ -79,6 +79,9 @@ function startExtension(gmail) {
         gmail.tools.add_toolbar_button("Summarise", () => {
             summarise(emailData);
         });
+        gmail.tools.add_toolbar_button("Extract", () => {
+            extract(emailData);
+        });
 
     });
 
@@ -88,15 +91,56 @@ function startExtension(gmail) {
         }
         else {
             var EmailBody = TextPreprocessing(emailData.content_html);
-            gmail.tools.add_modal_window('Email Body', EmailBody,
+            gmail.tools.add_modal_window('Summary', EmailBody,
                 function () {
                     gmail.tools.remove_modal_window();
                 });
         }
     }
 
-    function TextPreprocessing(text) {
+    function extract(emailData) {
+        if (Object.keys(emailData).length === 0) {
+            alert("Please open an email to extract emails, links and phones numbers!");
+        }
+        else {
+            var extracted_data = TextPreprocessing_Extract(emailData.content_html);
+            gmail.tools.add_modal_window('Emails, Links and Phone Numbers', extracted_data,
+                function () {
+                    gmail.tools.remove_modal_window();
+                });
+        }
+    }
 
+    function TextPreprocessing_Extract(extracted_text) {
+        console.log("HERE - " + extracted_text);
+        arr_sentences = [];
+        arr_sentences_removedStopwords = [];
+        stemmed_array_sentences = [];
+        stemmed_array_sentences_removedStopwords = [];
+        words_count = [];
+        max_count_of_any_word = 0;
+        max_frequency_words = [];
+        imp_index = [];
+        extracted_Emails = [];
+        extracted_Links = [];
+        extracted_Phones = [];
+        extracted_Emails = tp.ExtractEmails(extracted_text);
+        extracted_Links = tp.ExtractLinks(extracted_text);
+        extracted_text = tp.RemoveWordBreakingOpportunityTag(extracted_text);
+        extracted_text = tp.RemoveHtmlTags(extracted_text);
+        extracted_text = email_subject + ". " + extracted_text;
+        // console.log(extracted_text.split(/(?<=\S\S\S[\.?!])\s+/));
+        extracted_text = tp.RemoveSpecialCharactersCode(extracted_text);
+        extracted_text = tp.RemoveNonASCIICharacters(extracted_text);
+        extracted_text = tp.RemoveHyphenFromPhoneNumbers(extracted_text);
+        extracted_text = tp.RemoveWhiteSpaceFromPhoneNumbers(extracted_text);
+        extracted_Phones = tp.ExtractPhones(extracted_text);
+        extracted_text = GenerateSummary_Extract();
+        console.log(extracted_text);
+        return extracted_text;
+    }
+
+    function TextPreprocessing(text) {
         console.log("HERE - " + text);
         arr_sentences = [];
         arr_sentences_removedStopwords = [];
@@ -106,6 +150,9 @@ function startExtension(gmail) {
         max_count_of_any_word = 0;
         max_frequency_words = [];
         imp_index = [];
+        extracted_Emails = [];
+        extracted_Links = [];
+        extracted_Phones = [];
         extracted_Emails = tp.ExtractEmails(text);
         extracted_Links = tp.ExtractLinks(text);
         text = tp.RemoveWordBreakingOpportunityTag(text);
@@ -302,8 +349,6 @@ function startExtension(gmail) {
     //     FindLargest();
     // }
 
-
-
     function FindLargest() {
         console.log(arr_sentences);
         imp_index = [];
@@ -323,39 +368,51 @@ function startExtension(gmail) {
         imp_index.sort(function (a, b) { return a - b });
     }
 
+    function RemoveDuplicates(data) {
+        return Array.from(new Set(data));
+    }
+
     function GenerateSummary(text) {
         text = "";
         for (var i = 0; i < 3; i++) {
             text += (i + 1) + ". " + arr_sentences[imp_index[i]];
             text += "<br />";
         }
+        return text;
+    }
+
+    function GenerateSummary_Extract() {
+        var extracted_text = "";
+        unique_Extracted_Emails = Array.from(new Set(extracted_Emails));
+        unique_Extracted_Links = Array.from(new Set(extracted_Links));
+        unique_Extracted_Phones = Array.from(new Set(extracted_Phones));
         if (extracted_Emails !== null) {
-            text += "<br />Emails Extracted - <br />";
-            for (var i = 0; i < extracted_Emails.length; i++) {
-                text += (i + 1);
-                text += ". ";
-                text += "<a target='_blank' href='mailto:" + extracted_Emails[i] + "'>" + extracted_Emails[i] + "</a>";
-                text += "<br />";
+            extracted_text += "<br />Emails Extracted - <br />";
+            for (var i = 0; i < unique_Extracted_Emails.length; i++) {
+                extracted_text += (i + 1);
+                extracted_text += ". ";
+                extracted_text += "<a target='_blank' href='mailto:" + unique_Extracted_Emails[i] + "'>" + unique_Extracted_Emails[i] + "</a>";
+                extracted_text += "<br />";
             }
         }
         if (extracted_Links !== null) {
-            text += "<br />Links Extracted - <br />";
-            for (var i = 0; i < extracted_Links.length; i++) {
-                text += (i + 1);
-                text += ". ";
-                text += "<a target='_blank' href='" + extracted_Links[i] + "'>" + extracted_Links[i] + "</a>";
-                text += "<br />";
+            extracted_text += "<br />Links Extracted - <br />";
+            for (var i = 0; i < unique_Extracted_Links.length; i++) {
+                extracted_text += (i + 1);
+                extracted_text += ". ";
+                extracted_text += "<a target='_blank' href='" + unique_Extracted_Links[i] + "'>" + unique_Extracted_Links[i] + "</a>";
+                extracted_text += "<br />";
             }
         }
         if (extracted_Phones !== null) {
-            text += "<br />Phone Numbers Extracted - <br />";
-            for (var i = 0; i < extracted_Phones.length; i++) {
-                text += (i + 1);
-                text += ". ";
-                text += "<a target='_blank' href='tel:" + extracted_Phones[i] + "'>" + extracted_Phones[i] + "</a>";
-                text += "<br />";
+            extracted_text += "<br />Phone Numbers Extracted - <br />";
+            for (var i = 0; i < unique_Extracted_Phones.length; i++) {
+                extracted_text += (i + 1);
+                extracted_text += ". ";
+                extracted_text += "<a target='_blank' href='tel:" + unique_Extracted_Phones[i] + "'>" + unique_Extracted_Phones[i] + "</a>";
+                extracted_text += "<br />";
             }
         }
-        return text;
+        return extracted_text;
     }
 }
